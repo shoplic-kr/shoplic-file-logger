@@ -30,6 +30,10 @@ class FL_Ajax_Handler {
         // 디버그 설정 AJAX 핸들러
         add_action( 'wp_ajax_fl_save_debug_settings', array( $this, 'ajax_save_debug_settings' ) );
         add_action( 'wp_ajax_fl_download_wp_config', array( $this, 'ajax_download_wp_config' ) );
+        
+        // debug.log AJAX 핸들러
+        add_action( 'wp_ajax_fl_clear_debug_log', array( $this, 'ajax_clear_debug_log' ) );
+        add_action( 'wp_ajax_fl_refresh_debug_log', array( $this, 'ajax_refresh_debug_log' ) );
     }
     
     /**
@@ -237,5 +241,85 @@ class FL_Ajax_Handler {
         
         readfile( $config_path );
         exit;
+    }
+    
+    /**
+     * debug.log 비우기를 위한 AJAX 핸들러
+     */
+    public function ajax_clear_debug_log() {
+        if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'fl_ajax_nonce' ) ) {
+            wp_send_json_error( 'Nonce verification failed' );
+            return;
+        }
+        
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Permission denied' );
+            return;
+        }
+        
+        $debug_log_file = WP_CONTENT_DIR . '/debug.log';
+        
+        if ( file_exists( $debug_log_file ) ) {
+            // 파일 내용을 비움
+            if ( file_put_contents( $debug_log_file, '' ) !== false ) {
+                wp_send_json_success();
+            } else {
+                wp_send_json_error( 'Failed to clear debug.log' );
+            }
+        } else {
+            // 파일이 없어도 성공으로 처리
+            wp_send_json_success();
+        }
+    }
+    
+    /**
+     * debug.log 새로고침을 위한 AJAX 핸들러
+     */
+    public function ajax_refresh_debug_log() {
+        if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'fl_ajax_nonce' ) ) {
+            wp_send_json_error( 'Nonce verification failed' );
+            return;
+        }
+        
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Permission denied' );
+            return;
+        }
+        
+        $debug_log_file = WP_CONTENT_DIR . '/debug.log';
+        $admin_viewer = new FL_Admin_Viewer();
+        
+        if ( file_exists( $debug_log_file ) ) {
+            // 파일 크기 확인
+            $max_size = 1024 * 1024; // 1MB
+            $file_size_bytes = filesize( $debug_log_file );
+            $file_size = size_format( $file_size_bytes );
+            
+            if ( $file_size_bytes > $max_size ) {
+                // 파일의 마지막 1MB만 읽기
+                $handle = fopen( $debug_log_file, 'r' );
+                fseek( $handle, -$max_size, SEEK_END );
+                $content = fread( $handle, $max_size );
+                fclose( $handle );
+                
+                // 첫 줄이 잘릴 수 있으므로 첫 개행 문자 이후부터 표시
+                $content = substr( $content, strpos( $content, "\n" ) + 1 );
+                $formatted_content = '<p style="color: #ff6b6b; margin-bottom: 10px;">⚠️ 파일이 너무 커서 마지막 1MB만 표시합니다.</p>';
+                $formatted_content .= $admin_viewer->format_log_content( $content );
+            } else {
+                $content = file_get_contents( $debug_log_file );
+                $formatted_content = $admin_viewer->format_log_content( $content );
+            }
+            
+            wp_send_json_success( array(
+                'content' => $formatted_content,
+                'size' => $file_size
+            ) );
+        } else {
+            wp_send_json_success( array(
+                'content' => '<p>debug.log 파일이 없습니다.</p>',
+                'size' => '0 B'
+            ) );
+        }
     }
 }

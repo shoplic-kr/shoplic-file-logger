@@ -141,11 +141,16 @@ class FL_Admin_Viewer {
         // 사용 가능한 플러그인 가져오기
         $plugins = $this->get_logged_plugins();
         
-        if ( ! empty( $plugins ) ) : ?>
+        if ( ! empty( $plugins ) || file_exists( WP_CONTENT_DIR . '/debug.log' ) ) : ?>
             <div id="fl-logs-grid">
                 <?php
                 foreach ( $plugins as $plugin ) {
                     $this->display_log_card( $plugin );
+                }
+                
+                // debug.log 카드를 마지막에 추가
+                if ( file_exists( WP_CONTENT_DIR . '/debug.log' ) ) {
+                    $this->display_debug_log_card();
                 }
                 ?>
             </div>
@@ -208,13 +213,15 @@ class FL_Admin_Viewer {
                 pointer-events: none;
             }
             .fl-clear-log.fl-delete-confirm,
-            .fl-delete-file.fl-delete-confirm {
+            .fl-delete-file.fl-delete-confirm,
+            .fl-clear-debug-log.fl-delete-confirm {
                 background: #dc3545;
                 color: #fff !important;
                 border-color: #dc3545;
             }
             .fl-clear-log.fl-delete-confirm:hover,
-            .fl-delete-file.fl-delete-confirm:hover {
+            .fl-delete-file.fl-delete-confirm:hover,
+            .fl-clear-debug-log.fl-delete-confirm:hover {
                 background: #c82333;
                 border-color: #bd2130;
             }
@@ -434,6 +441,112 @@ class FL_Admin_Viewer {
                     card.removeClass('fl-loading');
                 });
             });
+            
+            // debug.log 비우기
+            $(document).on('click', '.fl-clear-debug-log', function() {
+                var button = $(this);
+                var card = button.closest('.fl-log-card');
+                
+                // 이미 확인 상태인지 체크
+                if (button.hasClass('fl-delete-confirm')) {
+                    // 두 번째 클릭 - 실제 비우기 수행
+                    card.addClass('fl-loading');
+                    
+                    $.ajax({
+                        url: fl_ajax.ajax_url,
+                        type: 'POST',
+                        data: {
+                            action: 'fl_clear_debug_log',
+                            nonce: fl_ajax.nonce
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                card.find('.fl-debug-log-content').html('<p>debug.log 파일이 없습니다.</p>');
+                                card.find('.fl-debug-log-size').text('0 B');
+                                card.removeClass('fl-loading');
+                                
+                                // 버튼 원래 상태로 복원
+                                button.removeClass('fl-delete-confirm');
+                                button.text('비우기');
+                            } else {
+                                card.removeClass('fl-loading');
+                                alert(response.data || '비우기에 실패했습니다.');
+                                // 버튼 원래 상태로 복원
+                                button.removeClass('fl-delete-confirm');
+                                button.text('비우기');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            card.removeClass('fl-loading');
+                            // 버튼 원래 상태로 복원
+                            button.removeClass('fl-delete-confirm');
+                            button.text('비우기');
+                        }
+                    });
+                } else {
+                    // 첫 번째 클릭 - 확인 상태로 변경
+                    button.addClass('fl-delete-confirm');
+                    button.text('한번 더 눌러주세요');
+                    
+                    // 3초 후 원래 상태로 복원
+                    setTimeout(function() {
+                        if (button.hasClass('fl-delete-confirm')) {
+                            button.removeClass('fl-delete-confirm');
+                            button.text('비우기');
+                        }
+                    }, 3000);
+                }
+            });
+            
+            // debug.log 복사
+            $(document).on('click', '.fl-copy-debug-log', function() {
+                var button = $(this);
+                var content = button.closest('.fl-log-card').find('.fl-debug-log-content').text();
+                
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(content).then(function() {
+                        var originalText = button.text();
+                        button.text('✓ 복사됨');
+                        setTimeout(function() {
+                            button.text(originalText);
+                        }, 2000);
+                    });
+                } else {
+                    // 폴백
+                    var textArea = $('<textarea>').val(content).css({
+                        position: 'fixed',
+                        left: '-999999px'
+                    }).appendTo('body');
+                    textArea[0].select();
+                    document.execCommand('copy');
+                    textArea.remove();
+                    
+                    var originalText = button.text();
+                    button.text('✓ 복사됨');
+                    setTimeout(function() {
+                        button.text(originalText);
+                    }, 2000);
+                }
+            });
+            
+            // debug.log 새로고침
+            $(document).on('click', '.fl-refresh-debug-log', function() {
+                var button = $(this);
+                var card = button.closest('.fl-log-card');
+                
+                card.addClass('fl-loading');
+                
+                $.post(fl_ajax.ajax_url, {
+                    action: 'fl_refresh_debug_log',
+                    nonce: fl_ajax.nonce
+                }, function(response) {
+                    if (response.success) {
+                        card.find('.fl-debug-log-content').html(response.data.content);
+                        card.find('.fl-debug-log-size').text(response.data.size);
+                    }
+                    card.removeClass('fl-loading');
+                });
+            });
         });
         </script>
         <?php
@@ -475,6 +588,57 @@ class FL_Admin_Viewer {
                     echo $this->format_log_content( $content );
                 } else {
                     echo '<p>로그가 없습니다.</p>';
+                }
+                ?>
+            </div>
+        </div>
+        <?php
+    }
+    
+    /**
+     * debug.log 카드 표시
+     */
+    private function display_debug_log_card() {
+        $debug_log_file = WP_CONTENT_DIR . '/debug.log';
+        $file_size = file_exists( $debug_log_file ) ? size_format( filesize( $debug_log_file ) ) : '0 B';
+        ?>
+        <div class="fl-log-card">
+            <h3>WordPress Debug Log</h3>
+            
+            <div class="fl-log-date-selector">
+                <p style="margin: 5px 0; color: #666;">파일 크기: <span class="fl-debug-log-size"><?php echo esc_html( $file_size ); ?></span></p>
+            </div>
+            
+            <div class="fl-log-actions">
+                <button type="button" class="button fl-clear-debug-log">비우기</button>
+                <button type="button" class="button fl-copy-debug-log">복사</button>
+                <button type="button" class="button fl-refresh-debug-log">새로고침</button>
+            </div>
+            
+            <div class="fl-log-content fl-debug-log-content">
+                <?php
+                if ( file_exists( $debug_log_file ) ) {
+                    // 파일 크기가 너무 크면 마지막 부분만 읽기
+                    $max_size = 1024 * 1024; // 1MB
+                    $file_size_bytes = filesize( $debug_log_file );
+                    
+                    if ( $file_size_bytes > $max_size ) {
+                        // 파일의 마지막 1MB만 읽기
+                        $handle = fopen( $debug_log_file, 'r' );
+                        fseek( $handle, -$max_size, SEEK_END );
+                        $content = fread( $handle, $max_size );
+                        fclose( $handle );
+                        
+                        // 첫 줄이 잘릴 수 있으므로 첫 개행 문자 이후부터 표시
+                        $content = substr( $content, strpos( $content, "\n" ) + 1 );
+                        echo '<p style="color: #ff6b6b; margin-bottom: 10px;">⚠️ 파일이 너무 커서 마지막 1MB만 표시합니다.</p>';
+                    } else {
+                        $content = file_get_contents( $debug_log_file );
+                    }
+                    
+                    echo $this->format_log_content( $content );
+                } else {
+                    echo '<p>debug.log 파일이 없습니다.</p>';
                 }
                 ?>
             </div>
