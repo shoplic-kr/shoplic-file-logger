@@ -94,7 +94,7 @@ class FL_Admin_Viewer {
                     <span title="애플리케이션에서 기록된 이벤트나 오류 메시지">로그</span>
                 </a>
                 <a href="?page=file-logger&tab=manual" class="nav-tab <?php echo $current_tab === 'manual' ? 'nav-tab-active' : ''; ?>">
-                    <span title="파일 로거 사용 방법 및 예제">메뉴얼</span>
+                    <span title="파일 로거 사용 방법 및 예제">사용법</span>
                 </a>
                 <a href="?page=file-logger&tab=debug-settings" class="nav-tab <?php echo $current_tab === 'debug-settings' ? 'nav-tab-active' : ''; ?>">
                     <span title="개발 중 문제 해결을 위한 워드프레스 디버그 모드 설정">디버그 설정</span>
@@ -142,7 +142,7 @@ class FL_Admin_Viewer {
         $plugins = $this->get_logged_plugins();
         
         if ( ! empty( $plugins ) ) : ?>
-            <div id="fl-logs-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+            <div id="fl-logs-grid">
                 <?php
                 foreach ( $plugins as $plugin ) {
                     $this->display_log_card( $plugin );
@@ -154,12 +154,20 @@ class FL_Admin_Viewer {
         <?php endif; ?>
         
         <style>
+            #fl-logs-grid {
+                display: grid !important;
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                gap: 20px !important;
+                margin-top: 20px !important;
+            }
             .fl-log-card {
                 background: #fff;
                 border: 1px solid #ccd0d4;
                 padding: 15px;
                 border-radius: 4px;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                width: 100%;
+                box-sizing: border-box;
             }
             .fl-log-card h3 {
                 margin-top: 0;
@@ -199,10 +207,14 @@ class FL_Admin_Viewer {
                 opacity: 0.5;
                 pointer-events: none;
             }
-            @media (min-width: 1200px) {
-                #fl-logs-grid {
-                    grid-template-columns: repeat(4, 1fr) !important;
-                }
+            .fl-delete-log.fl-delete-confirm {
+                background: #dc3545;
+                color: #fff !important;
+                border-color: #dc3545;
+            }
+            .fl-delete-log.fl-delete-confirm:hover {
+                background: #c82333;
+                border-color: #bd2130;
             }
         </style>
         
@@ -210,45 +222,67 @@ class FL_Admin_Viewer {
         jQuery(document).ready(function($) {
             // 로그 삭제
             $(document).on('click', '.fl-delete-log', function() {
-                if (!confirm('정말로 이 로그를 삭제하시겠습니까?')) {
-                    return;
-                }
-                
                 var button = $(this);
                 var card = button.closest('.fl-log-card');
-                var plugin = button.data('plugin');
-                var date = button.data('date');
                 
-                console.log('Deleting log:', plugin, date); // 디버그
-                
-                card.addClass('fl-loading');
-                
-                $.ajax({
-                    url: fl_ajax.ajax_url,
-                    type: 'POST',
-                    data: {
-                        action: 'fl_delete_log',
-                        plugin: plugin,
-                        date: date,
-                        nonce: fl_ajax.nonce
-                    },
-                    success: function(response) {
-                        console.log('Delete response:', response); // 디버그
-                        if (response.success) {
-                            card.fadeOut(function() {
-                                $(this).remove();
-                            });
-                        } else {
-                            alert('로그 삭제에 실패했습니다.');
+                // 이미 확인 상태인지 체크
+                if (button.hasClass('fl-delete-confirm')) {
+                    // 두 번째 클릭 - 실제 삭제 수행
+                    var plugin = button.data('plugin');
+                    var date = button.data('date');
+                    
+                    console.log('Deleting log:', plugin, date); // 디버그
+                    
+                    card.addClass('fl-loading');
+                    
+                    $.ajax({
+                        url: fl_ajax.ajax_url,
+                        type: 'POST',
+                        data: {
+                            action: 'fl_delete_log',
+                            plugin: plugin,
+                            date: date,
+                            nonce: fl_ajax.nonce
+                        },
+                        success: function(response) {
+                            console.log('Delete response:', response); // 디버그
+                            if (response.success) {
+                                // 파일 내용이 비워졌으므로 로그를 새로고침
+                                card.find('.fl-log-content').html('<p>로그가 없습니다.</p>');
+                                card.find('.fl-log-size').text('0 B');
+                                card.removeClass('fl-loading');
+                                
+                                // 버튼 원래 상태로 복원
+                                button.removeClass('fl-delete-confirm');
+                                button.text('삭제');
+                            } else {
+                                card.removeClass('fl-loading');
+                                // 버튼 원래 상태로 복원
+                                button.removeClass('fl-delete-confirm');
+                                button.text('삭제');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Delete error:', status, error); // 디버그
                             card.removeClass('fl-loading');
+                            // 버튼 원래 상태로 복원
+                            button.removeClass('fl-delete-confirm');
+                            button.text('삭제');
                         }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('Delete error:', status, error); // 디버그
-                        alert('로그 삭제 중 오류가 발생했습니다: ' + error);
-                        card.removeClass('fl-loading');
-                    }
-                });
+                    });
+                } else {
+                    // 첫 번째 클릭 - 확인 상태로 변경
+                    button.addClass('fl-delete-confirm');
+                    button.text('한번 더 눌러주세요');
+                    
+                    // 3초 후 원래 상태로 복원
+                    setTimeout(function() {
+                        if (button.hasClass('fl-delete-confirm')) {
+                            button.removeClass('fl-delete-confirm');
+                            button.text('삭제');
+                        }
+                    }, 3000);
+                }
             });
             
             // 로그 복사

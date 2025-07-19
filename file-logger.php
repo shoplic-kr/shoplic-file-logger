@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: 파일 로거
+ * Plugin Name: 쇼플릭 파일 로거
  * Plugin URI: https://shoplic.kr
  * Description: 파일에 로그를 남깁니다. AI에게 로그 데이터를 넘길때 사용할 수 있습니다.
  * Version: 1.0.0

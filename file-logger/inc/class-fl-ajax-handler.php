@@ -64,12 +64,13 @@ class FL_Ajax_Handler {
         error_log( 'FL Delete: Attempting to delete file: ' . $log_file );
         
         if ( file_exists( $log_file ) ) {
-            if ( unlink( $log_file ) ) {
-                error_log( 'FL Delete: File deleted successfully' );
+            // 파일을 삭제하는 대신 내용을 비움
+            if ( file_put_contents( $log_file, '' ) !== false ) {
+                error_log( 'FL Delete: File content cleared successfully' );
                 wp_send_json_success();
             } else {
-                error_log( 'FL Delete: Failed to delete file' );
-                wp_send_json_error( 'Failed to delete file' );
+                error_log( 'FL Delete: Failed to clear file content' );
+                wp_send_json_error( 'Failed to clear file content' );
             }
         } else {
             error_log( 'FL Delete: File not found' );
