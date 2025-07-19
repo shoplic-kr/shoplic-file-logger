@@ -21,36 +21,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // 일반 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_log' ) ) {
-    function fl_log( $message, $data = null ) {
-        \FL::log( $message, $data );
+    function fl_log( $run, $message, $data = null ) {
+        $run && \FL::log( $message, $data );
     }
 }
 
 // 오류 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_error' ) ) {
-    function fl_error( $message, $data = null ) {
-        \FL::error( $message, $data );
+    function fl_error( $run, $message, $data = null ) {
+        $run && \FL::error( $message, $data );
     }
 }
 
 // 정보 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_info' ) ) {
-    function fl_info( $message, $data = null ) {
-        \FL::info( $message, $data );
+    function fl_info( $run, $message, $data = null ) {
+        $run && \FL::info( $message, $data );
     }
 }
 
 // 디버그 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_debug' ) ) {
-    function fl_debug( $message, $data = null ) {
-        \FL::debug( $message, $data );
+    function fl_debug( $run, $message, $data = null ) {
+        $run && \FL::debug( $message, $data );
     }
 }
 
 // 경고 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_warning' ) ) {
-    function fl_warning( $message, $data = null ) {
-        \FL::warning( $message, $data );
+    function fl_warning( $run, $message, $data = null ) {
+        $run && \FL::warning( $message, $data );
     }
 }
 
