@@ -56,6 +56,21 @@ fl_warning('캐시가 만료되었습니다');
 fl_debug('디버그 정보');
 ```
 
+#### 조건부 로깅 비활성화
+```php
+// 특정 조건에서 로깅 비활성화 (disable 파라미터 사용)
+$is_production = defined('WP_ENV') && WP_ENV === 'production';
+fl_log('개발 환경에서만 기록되는 로그', null, $is_production); // 프로덕션에서는 로깅 안함
+
+// 에러가 없을 때만 로깅 비활성화
+$no_error = empty($error_message);
+fl_error('에러 발생', $error_details, $no_error); // 에러가 있을 때만 로깅
+
+// 관리자가 아닌 경우 로깅 비활성화
+$is_not_admin = !current_user_can('manage_options');
+fl_info('관리자 작업', $admin_data, $is_not_admin);
+```
+
 #### 데이터와 함께 로깅
 ```php
 // 사용자 데이터 로깅
@@ -68,6 +83,10 @@ fl_error('API 호출 실패', [
     'response_code' => 500,
     'error_message' => 'Internal Server Error'
 ]);
+
+// 조건부 데이터 로깅 비활성화
+$no_error = $response_code < 400;
+fl_error('API 응답 에러', $response_data, $no_error); // 400 이상일 때만 로깅
 ```
 
 #### 컨텍스트 정보 포함 (권장)
@@ -88,8 +107,11 @@ class MyPlugin {
         
         // 처리 로직...
         
+        $failed = $payment_result !== 'success';
         fl_info(
-            sprintf('[%s - %s] 결제 완료', basename(__FILE__), __METHOD__)
+            sprintf('[%s - %s] 결제 완료', basename(__FILE__), __METHOD__),
+            null,
+            $failed // 실패 시에는 로깅 안함
         );
     }
 }
@@ -114,11 +136,11 @@ class MyPlugin {
 
 | 함수 | 설명 | 파라미터 |
 |------|------|----------|
-| `fl_log()` | 일반 로그 메시지 기록 | `$message` (string), `$data` (mixed, optional) |
-| `fl_error()` | 에러 메시지 기록 | `$message` (string), `$data` (mixed, optional) |
-| `fl_info()` | 정보성 메시지 기록 | `$message` (string), `$data` (mixed, optional) |
-| `fl_warning()` | 경고 메시지 기록 | `$message` (string), `$data` (mixed, optional) |
-| `fl_debug()` | 디버그 메시지 기록 (WP_DEBUG 필요) | `$message` (string), `$data` (mixed, optional) |
+| `fl_log()` | 일반 로그 메시지 기록 | `$message` (string), `$data` (mixed, optional), `$disable` (bool, optional) |
+| `fl_error()` | 에러 메시지 기록 | `$message` (string), `$data` (mixed, optional), `$disable` (bool, optional) |
+| `fl_info()` | 정보성 메시지 기록 | `$message` (string), `$data` (mixed, optional), `$disable` (bool, optional) |
+| `fl_warning()` | 경고 메시지 기록 | `$message` (string), `$data` (mixed, optional), `$disable` (bool, optional) |
+| `fl_debug()` | 디버그 메시지 기록 (WP_DEBUG 필요) | `$message` (string), `$data` (mixed, optional), `$disable` (bool, optional) |
 
 ### FL 클래스 메서드
 
@@ -136,8 +158,12 @@ class MyPlugin {
 
 1. **헬퍼 함수 사용**
    ```php
-   // 권장
+   // 권장 - 기본 로깅
    fl_log('메시지');
+   
+   // 조건부 로깅 비활성화
+   $is_production = WP_ENV === 'production';
+   fl_log('개발 메시지', null, $is_production);
    
    // 가능하지만 타이핑이 더 필요함
    \FL::log('메시지');
@@ -167,6 +193,17 @@ class MyPlugin {
    ]);
    ```
 
+5. **조건부 로깅 비활성화 활용**
+   ```php
+   // 프로덕션에서는 디버그 로깅 비활성화
+   $is_production = defined('WP_ENV') && WP_ENV === 'production';
+   fl_debug('개발 환경 디버그 정보', $debug_data, $is_production);
+   
+   // 에러가 없을 때는 로깅 비활성화
+   $no_error = empty($error_message);
+   fl_error('처리 중 에러 발생', $error_details, $no_error);
+   ```
+
 ### 피해야 할 사항
 
 1. **민감한 정보 로깅 금지**
@@ -185,8 +222,16 @@ class MyPlugin {
        fl_debug('아이템 처리', $item); // 성능 저하
    }
    
-   // 좋은 예
+   // 좋은 예 - 요약 정보만 로깅
    fl_debug('처리할 아이템 수', count($large_array));
+   
+   // 또는 루프에서 특정 항목만 로깅
+   foreach ($large_array as $index => $item) {
+       // 첫 번째와 마지막 항목만 로깅
+       $should_skip = $index > 0 && $index < count($large_array) - 1;
+       fl_debug('아이템 처리', $item, $should_skip);
+       // 처리 로직...
+   }
    ```
 
 3. **컨텍스트 없는 로깅**

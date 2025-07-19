@@ -550,11 +550,17 @@ class FL_Admin_Viewer {
                     
                     <h3>1. 기본 사용법 (헬퍼 함수)</h3>
                     <pre style="background: #f1f1f1; padding: 15px; overflow-x: auto;">
+// 기본 로깅
 fl_log('일반 로그 메시지');
 fl_error('에러 메시지');
 fl_info('정보 메시지');
 fl_debug('디버그 메시지');  // WP_DEBUG가 true일 때만 기록
-fl_warning('경고 메시지');</pre>
+fl_warning('경고 메시지');
+
+// 조건부 로깅 비활성화 (disable 파라미터 사용)
+$is_production = defined('WP_ENV') && WP_ENV === 'production';
+fl_log('개발 환경 로그', null, $is_production); // 프로덕션에서는 로깅 안함
+fl_error('에러 발생', $error_details, !$has_error); // 에러가 있을 때만 로깅</pre>
                     
                     <h3>2. 데이터와 함께 로깅</h3>
                     <pre style="background: #f1f1f1; padding: 15px; overflow-x: auto;">
@@ -588,9 +594,33 @@ fl_info(
 fl_error(
     sprintf('[%s - %s] 재고 부족', basename(__FILE__), __METHOD__),
     ['product_id' => $product_id, 'requested' => $quantity]
+);
+
+// 조건부 로깅과 함께 사용
+$is_test_mode = get_option('payment_test_mode');
+fl_info(
+    sprintf('[%s - %s] 결제 처리 완료', basename(__FILE__), __METHOD__),
+    ['order_id' => $order_id, 'amount' => $amount],
+    !$is_test_mode // 테스트 모드가 아닐 때만 로깅
 );</pre>
                     
-                    <h3>4. 주요 기능</h3>
+                    <h3>4. 조건부 로깅 비활성화 ($disable 파라미터)</h3>
+                    <p>모든 헬퍼 함수는 세 번째 파라미터로 <code>$disable</code>를 받습니다. 이 값이 <code>true</code>일 때 로깅이 비활성화됩니다.</p>
+                    <pre style="background: #f1f1f1; padding: 15px; overflow-x: auto;">
+// 함수 시그니처
+fl_log($message, $data = null, $disable = false);
+
+// 사용 예제
+$is_production = WP_ENV === 'production';
+fl_debug('개발용 디버그 정보', $debug_data, $is_production); // 프로덕션에서는 로깅 안함
+
+$should_skip_log = !current_user_can('manage_options');
+fl_info('관리자 활동', $admin_action, $should_skip_log); // 관리자만 로깅
+
+$no_error = empty($error_message);
+fl_error('에러 정보', $error_details, $no_error); // 에러가 있을 때만 로깅</pre>
+                    
+                    <h3>5. 주요 기능</h3>
                     <ul style="line-height: 1.8;">
                         <li><strong>자동 분류:</strong> 플러그인/테마별로 로그가 자동으로 분류됩니다</li>
                         <li><strong>날짜별 파일:</strong> 매일 새로운 로그 파일이 생성됩니다</li>
@@ -598,12 +628,13 @@ fl_error(
                         <li><strong>레벨별 구분:</strong> LOG, ERROR, INFO, DEBUG, WARNING 레벨 지원</li>
                         <li><strong>관리 기능:</strong> 로그 보기, 다운로드, 복사, 삭제 기능 제공</li>
                         <li><strong>보안:</strong> 로그 디렉토리는 웹에서 직접 접근 불가</li>
+                        <li><strong>조건부 로깅:</strong> $disable 파라미터로 상황에 따른 로깅 제어</li>
                     </ul>
                     
-                    <h3>5. 로그 위치</h3>
+                    <h3>6. 로그 위치</h3>
                     <p><code>/wp-content/fl-logs/[플러그인명]/log-YYYY-MM-DD.log</code></p>
                     
-                    <h3>6. 클래스 직접 사용 (대체 방법)</h3>
+                    <h3>7. 클래스 직접 사용 (대체 방법)</h3>
                     <pre style="background: #f1f1f1; padding: 15px; overflow-x: auto;">
 // 헬퍼 함수 대신 클래스를 직접 사용할 수도 있습니다
 \FL::log('일반 로그 메시지');

@@ -21,36 +21,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // 일반 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_log' ) ) {
-    function fl_log( $run, $message, $data = null ) {
-        $run && \FL::log( $message, $data );
+    function fl_log( $message, $data = null, $disable = false ) {
+        !$disable && \FL::log( $message, $data );
     }
 }
 
 // 오류 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_error' ) ) {
-    function fl_error( $run, $message, $data = null ) {
-        $run && \FL::error( $message, $data );
+    function fl_error( $message, $data = null, $disable = false ) {
+        !$disable && \FL::error( $message, $data );
     }
 }
 
 // 정보 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_info' ) ) {
-    function fl_info( $run, $message, $data = null ) {
-        $run && \FL::info( $message, $data );
+    function fl_info( $message, $data = null, $disable = false ) {
+        !$disable && \FL::info( $message, $data );
     }
 }
 
 // 디버그 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_debug' ) ) {
-    function fl_debug( $run, $message, $data = null ) {
-        $run && \FL::debug( $message, $data );
+    function fl_debug( $message, $data = null, $disable = false ) {
+        !$disable && \FL::debug( $message, $data );
     }
 }
 
 // 경고 로깅을 위한 헬퍼 함수
 if ( ! function_exists( 'fl_warning' ) ) {
-    function fl_warning( $run, $message, $data = null ) {
-        $run && \FL::warning( $message, $data );
+    function fl_warning( $message, $data = null, $disable = false ) {
+        !$disable && \FL::warning( $message, $data );
     }
 }
 
@@ -75,6 +75,11 @@ if ( ! function_exists( 'fl_warning' ) ) {
  *    fl_info('정보성 메시지');
  *    fl_debug('디버그 메시지'); // <span title="워드프레스 디버그 모드 상수">WP_DEBUG</span>가 true일 때만 기록
  *    fl_warning('경고 메시지');
+ *    
+ *    // 특정 조건에서 로깅 비활성화 (disable 파라미터 사용)
+ *    $is_production = defined('WP_ENV') && WP_ENV === 'production';
+ *    fl_log('개발 환경 로그', null, $is_production); // 프로덕션에서는 로깅 안함
+ *    fl_error('에러 발생', $error_details, !$has_error); // 에러가 있을 때만 로깅
  *    
  *    // 클래스 직접 호출
  *    \FL::log('일반 로그 메시지');
