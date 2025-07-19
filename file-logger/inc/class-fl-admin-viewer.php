@@ -207,12 +207,14 @@ class FL_Admin_Viewer {
                 opacity: 0.5;
                 pointer-events: none;
             }
-            .fl-delete-log.fl-delete-confirm {
+            .fl-clear-log.fl-delete-confirm,
+            .fl-delete-file.fl-delete-confirm {
                 background: #dc3545;
                 color: #fff !important;
                 border-color: #dc3545;
             }
-            .fl-delete-log.fl-delete-confirm:hover {
+            .fl-clear-log.fl-delete-confirm:hover,
+            .fl-delete-file.fl-delete-confirm:hover {
                 background: #c82333;
                 border-color: #bd2130;
             }
@@ -220,8 +222,8 @@ class FL_Admin_Viewer {
         
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            // 로그 삭제
-            $(document).on('click', '.fl-delete-log', function() {
+            // 로그 비우기
+            $(document).on('click', '.fl-clear-log', function() {
                 var button = $(this);
                 var card = button.closest('.fl-log-card');
                 
@@ -239,7 +241,7 @@ class FL_Admin_Viewer {
                         url: fl_ajax.ajax_url,
                         type: 'POST',
                         data: {
-                            action: 'fl_delete_log',
+                            action: 'fl_clear_log',
                             plugin: plugin,
                             date: date,
                             nonce: fl_ajax.nonce
@@ -254,12 +256,12 @@ class FL_Admin_Viewer {
                                 
                                 // 버튼 원래 상태로 복원
                                 button.removeClass('fl-delete-confirm');
-                                button.text('삭제');
+                                button.text('비우기');
                             } else {
                                 card.removeClass('fl-loading');
                                 // 버튼 원래 상태로 복원
                                 button.removeClass('fl-delete-confirm');
-                                button.text('삭제');
+                                button.text('비우기');
                             }
                         },
                         error: function(xhr, status, error) {
@@ -267,7 +269,7 @@ class FL_Admin_Viewer {
                             card.removeClass('fl-loading');
                             // 버튼 원래 상태로 복원
                             button.removeClass('fl-delete-confirm');
-                            button.text('삭제');
+                            button.text('비우기');
                         }
                     });
                 } else {
@@ -279,7 +281,75 @@ class FL_Admin_Viewer {
                     setTimeout(function() {
                         if (button.hasClass('fl-delete-confirm')) {
                             button.removeClass('fl-delete-confirm');
-                            button.text('삭제');
+                            button.text('비우기');
+                        }
+                    }, 3000);
+                }
+            });
+            
+            // 로그 파일 삭제
+            $(document).on('click', '.fl-delete-file', function() {
+                var button = $(this);
+                var card = button.closest('.fl-log-card');
+                
+                // 이미 확인 상태인지 체크
+                if (button.hasClass('fl-delete-confirm')) {
+                    // 두 번째 클릭 - 실제 삭제 수행
+                    var plugin = button.data('plugin');
+                    var date = button.data('date');
+                    
+                    card.addClass('fl-loading');
+                    
+                    $.ajax({
+                        url: fl_ajax.ajax_url,
+                        type: 'POST',
+                        data: {
+                            action: 'fl_delete_file',
+                            plugin: plugin,
+                            date: date,
+                            nonce: fl_ajax.nonce
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                // 파일이 삭제되었으므로 날짜 선택기에서 해당 날짜 제거
+                                var option = card.find('.fl-log-date-select option[value="' + date + '"]');
+                                option.remove();
+                                
+                                // 다른 날짜가 있으면 첫 번째 날짜로 자동 전환
+                                var newDate = card.find('.fl-log-date-select option:first').val();
+                                if (newDate) {
+                                    card.find('.fl-log-date-select').val(newDate).trigger('change');
+                                } else {
+                                    // 모든 로그가 삭제되면 카드 제거
+                                    card.fadeOut(function() {
+                                        card.remove();
+                                    });
+                                }
+                            } else {
+                                card.removeClass('fl-loading');
+                                alert('파일 삭제에 실패했습니다.');
+                            }
+                            // 버튼 원래 상태로 복원
+                            button.removeClass('fl-delete-confirm');
+                            button.text('파일삭제');
+                        },
+                        error: function(xhr, status, error) {
+                            card.removeClass('fl-loading');
+                            // 버튼 원래 상태로 복원
+                            button.removeClass('fl-delete-confirm');
+                            button.text('파일삭제');
+                        }
+                    });
+                } else {
+                    // 첫 번째 클릭 - 확인 상태로 변경
+                    button.addClass('fl-delete-confirm');
+                    button.text('영구 삭제하시겠습니까?');
+                    
+                    // 3초 후 원래 상태로 복원
+                    setTimeout(function() {
+                        if (button.hasClass('fl-delete-confirm')) {
+                            button.removeClass('fl-delete-confirm');
+                            button.text('파일삭제');
                         }
                     }, 3000);
                 }
@@ -359,7 +429,7 @@ class FL_Admin_Viewer {
                         card.find('.fl-log-size').text(response.data.size);
                         
                         // data-date 속성 업데이트
-                        card.find('.fl-delete-log, .fl-copy-log, .fl-refresh-log').attr('data-date', date);
+                        card.find('.fl-clear-log, .fl-copy-log, .fl-refresh-log, .fl-delete-file').attr('data-date', date);
                     }
                     card.removeClass('fl-loading');
                 });
@@ -392,9 +462,10 @@ class FL_Admin_Viewer {
             </div>
             
             <div class="fl-log-actions">
-                <button type="button" class="button fl-delete-log" data-plugin="<?php echo esc_attr( $plugin ); ?>" data-date="<?php echo esc_attr( $current_date ); ?>">삭제</button>
+                <button type="button" class="button fl-clear-log" data-plugin="<?php echo esc_attr( $plugin ); ?>" data-date="<?php echo esc_attr( $current_date ); ?>">비우기</button>
                 <button type="button" class="button fl-copy-log" data-plugin="<?php echo esc_attr( $plugin ); ?>" data-date="<?php echo esc_attr( $current_date ); ?>">복사</button>
                 <button type="button" class="button fl-refresh-log" data-plugin="<?php echo esc_attr( $plugin ); ?>" data-date="<?php echo esc_attr( $current_date ); ?>">새로고침</button>
+                <button type="button" class="button fl-delete-file" data-plugin="<?php echo esc_attr( $plugin ); ?>" data-date="<?php echo esc_attr( $current_date ); ?>">파일삭제</button>
             </div>
             
             <div class="fl-log-content">

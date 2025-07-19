@@ -163,7 +163,8 @@ class MyPlugin {
    
    // 조건부 로깅 비활성화
    $is_production = WP_ENV === 'production';
-   fl_log('개발 메시지', null, $is_production);
+   $disabled = $is_production;
+   fl_log('개발 메시지', null, $disabled);
    
    // 가능하지만 타이핑이 더 필요함
    \FL::log('메시지');

@@ -22,7 +22,8 @@ class FL_Ajax_Handler {
      */
     public function __construct() {
         // 로그 관련 AJAX 핸들러
-        add_action( 'wp_ajax_fl_delete_log', array( $this, 'ajax_delete_log' ) );
+        add_action( 'wp_ajax_fl_clear_log', array( $this, 'ajax_clear_log' ) );
+        add_action( 'wp_ajax_fl_delete_file', array( $this, 'ajax_delete_file' ) );
         add_action( 'wp_ajax_fl_copy_log', array( $this, 'ajax_copy_log' ) );
         add_action( 'wp_ajax_fl_refresh_log', array( $this, 'ajax_refresh_log' ) );
         
@@ -32,21 +33,15 @@ class FL_Ajax_Handler {
     }
     
     /**
-     * 로그 삭제를 위한 AJAX 핸들러
+     * 로그 비우기를 위한 AJAX 핸들러
      */
-    public function ajax_delete_log() {
-        // 디버그 로깅
-        error_log( 'FL Delete AJAX called' );
-        error_log( 'POST data: ' . print_r( $_POST, true ) );
-        
+    public function ajax_clear_log() {
         if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'fl_ajax_nonce' ) ) {
-            error_log( 'FL Delete: Nonce verification failed' );
             wp_send_json_error( 'Nonce verification failed' );
             return;
         }
         
         if ( ! current_user_can( 'manage_options' ) ) {
-            error_log( 'FL Delete: Permission denied' );
             wp_send_json_error( 'Permission denied' );
             return;
         }
@@ -55,25 +50,56 @@ class FL_Ajax_Handler {
         $date = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
         
         if ( empty( $plugin ) || empty( $date ) ) {
-            error_log( 'FL Delete: Missing parameters' );
             wp_send_json_error( 'Missing parameters' );
             return;
         }
         
         $log_file = FL_LOG_DIR . '/' . $plugin . '/log-' . $date . '.log';
-        error_log( 'FL Delete: Attempting to delete file: ' . $log_file );
         
         if ( file_exists( $log_file ) ) {
-            // 파일을 삭제하는 대신 내용을 비움
+            // 파일 내용을 비움
             if ( file_put_contents( $log_file, '' ) !== false ) {
-                error_log( 'FL Delete: File content cleared successfully' );
                 wp_send_json_success();
             } else {
-                error_log( 'FL Delete: Failed to clear file content' );
                 wp_send_json_error( 'Failed to clear file content' );
             }
         } else {
-            error_log( 'FL Delete: File not found' );
+            wp_send_json_error( 'File not found' );
+        }
+    }
+    
+    /**
+     * 로그 파일 삭제를 위한 AJAX 핸들러
+     */
+    public function ajax_delete_file() {
+        if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'fl_ajax_nonce' ) ) {
+            wp_send_json_error( 'Nonce verification failed' );
+            return;
+        }
+        
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Permission denied' );
+            return;
+        }
+        
+        $plugin = isset( $_POST['plugin'] ) ? sanitize_text_field( $_POST['plugin'] ) : '';
+        $date = isset( $_POST['date'] ) ? sanitize_text_field( $_POST['date'] ) : '';
+        
+        if ( empty( $plugin ) || empty( $date ) ) {
+            wp_send_json_error( 'Missing parameters' );
+            return;
+        }
+        
+        $log_file = FL_LOG_DIR . '/' . $plugin . '/log-' . $date . '.log';
+        
+        if ( file_exists( $log_file ) ) {
+            // 파일을 완전히 삭제
+            if ( unlink( $log_file ) ) {
+                wp_send_json_success();
+            } else {
+                wp_send_json_error( 'Failed to delete file' );
+            }
+        } else {
             wp_send_json_error( 'File not found' );
         }
     }
